@@ -141,7 +141,7 @@ class EventBroadcaster:
 
                 # Wait for new queue item to populate to main process
                 # TODO: find a better solution
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.7)
 
                 return
 
