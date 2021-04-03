@@ -28,13 +28,16 @@ from collections import OrderedDict
 from concurrent.futures import Executor, ProcessPoolExecutor
 from glob import glob
 from sklearn.metrics import accuracy_score, f1_score, make_scorer, precision_score, recall_score
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_score, StratifiedKFold
 from time import time
 from typing import Any, Dict, Union, Tuple
 
 import asyncio
 import numpy as np
 import os
+from math import sqrt, pow
+from statistics import mean, stdev
+from collections import defaultdict
 
 
 class ExpandingExecutor(JobExecutor):
@@ -123,16 +126,24 @@ class ExpandingExecutor(JobExecutor):
             cfg = JobConfigLoader(self._config.get())
 
         chunk_tokenizer = self._configure_instance(cfg.get("job.input.chunker"), Chunker)
-        parser = self._configure_instance(cfg.get("job.input.parser"), CorpusParser, (chunk_tokenizer,))
+        system = 'original'
+        try:
+            system = cfg.get("job.input.transcription")
+            print("Using transcription system: " + system)
+        except KeyError:
+            print('No or invalid transcription system specified. Not transcribing.')
+        # Using None for skipping the 2nd argument is hacky, is there a way to use kwargs here?
+        parser = self._configure_instance(cfg.get("job.input.parser"), CorpusParser, (chunk_tokenizer, None, system,))
         repetitions = cfg.get("job.experiment.repetitions")
         strat = self._configure_instance(cfg.get("job.exec.strategy"), Strategy)
         sampler = self._configure_instance(cfg.get("job.classifier.sampler"), ChunkSampler)
-
+        #print(parser)
         loop = asyncio.get_event_loop()
         for _ in range(repetitions):
             futures = []
 
             async for pair in parser:
+                #print(pair.chunks_a[0][:50], pair.chunks_b[0][:50])
                 feature_set = self._configure_instance(
                     cfg.get("job.classifier.feature_set"), FeatureSet, (pair, sampler))
                 futures.append(loop.run_in_executor(executor, self._exec, strat, feature_set))
@@ -310,10 +321,11 @@ class MetaClassificationExecutor(JobExecutor, metaclass=ABCMeta):
         X, y = unmasking.to_numpy()
         if y is None:
             raise RuntimeError("Training input must have labels")
-
+        print('Optimizing')
         await model.optimize(X, y)
+        print('Fitting')
         await model.fit(X, y)
-
+        print('Finish')
         y = [unmasking.numpy_label_to_str(l) for l in y]
         event = ModelFitEvent(input_path, 0, X, y)
         await EventBroadcaster().publish("onModelFit", event, self.__class__)
@@ -458,7 +470,7 @@ class MetaApplyExecutor(MetaClassificationExecutor):
         :param X: data points
         :return: predicted classes as int vector and decision probabilities
         """
-        pred = await self._model.predict(X)
+        pred = await self._model.predict(X)  # Where is it ensured that this is not a string?
         decision_func = await self._model.decision_function(X)
         prob = np.abs(decision_func)
         prob = (prob - np.min(prob)) / (np.max(prob) - np.min(prob))
@@ -502,12 +514,12 @@ class MetaEvalExecutor(MetaApplyExecutor):
 
     # noinspection PyPep8Naming
     async def _exec(self, job_id, output_dir):
-        await self._load_data()
+        await self._load_data()  # This fills _test_data with test input json and _model with something (is this also just an unmasking result??)
 
-        X, y = self._test_data.to_numpy()
+        X, y = self._test_data.to_numpy()  # This is the test data. This is the test split!
         if y is None:
             raise ValueError("Test set must have labels")
-        pred, _ = await self._predict(X)
+        pred, _ = await self._predict(X)  # Somehow the class has the model. I'm not sure where it's trained.
 
         # assume positive class is class with highest int label (usually 1)
         # TODO: let user choose different positive class
@@ -554,6 +566,96 @@ class MetaEvalExecutor(MetaApplyExecutor):
         await EventBroadcaster().publish("onDataPredicted", event, self.__class__)
 
         await self._test_data.save(output_dir)
+
+
+class MetaCrossvalExecutor(MetaClassificationExecutor):
+    """
+    Evaluate model quality by cross validating on 10 splits.
+
+    Events published by this class:
+
+    * `onJobFinished`:    [type JobFinishedEvent]
+                          fired when the job has finished
+    * `onDataPredicted`:  [type ModelMetricsEvent]
+                          fired when model has been applied to dataset to predict samples
+    """
+
+    def __init__(self, input_path: str):
+        """
+        :param input_path: JSON input file
+        """
+        super().__init__()
+        self._input_path = input_path
+
+    # noinspection PyPep8Naming
+    async def _exec(self, job_id, output_dir):
+        if not self._input_path.endswith(".json"):
+            raise ValueError("Input file must be JSON")
+
+        # Load data
+        unmasking = UnmaskingResult()
+        unmasking.load(self._input_path)
+        X, y = unmasking.to_numpy()
+        # -> Create splits, aggregate them into a loop to have access to
+        # -> X_train_i, y_train_i, X_test_i, y_test_i to fit and test models for each split
+        # Create 'empty models'
+        k = 10
+
+        models = [self._configure_instance(self._config.get("job.model"), MetaClassificationModel) for _ in range(k)]
+
+        results = defaultdict(list)
+
+        kf = StratifiedKFold(n_splits=k)
+        for model, (train, test), i in zip(models, kf.split(X, y), range(k)):
+            X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
+
+            # Train model on split
+            print('Optimizing split', i)
+            await model.optimize(X_train, y_train)
+            print('Fitting split', i)
+            await model.fit(X_train, y_train)
+
+            # Predict test split
+            pred = await model.predict(X_test)
+
+            positive_cls = np.max(y_test)
+            negative_cls = np.min(y_test)
+
+            # eliminate all non-decisions
+            y_pred_filtered = pred[pred > -1]
+            y_pred_all      = np.copy(pred)
+            y_pred_all[y_pred_all == -1] = negative_cls
+            y_filtered     = y_test[pred > -1]
+
+            results['accuracy'].append(accuracy_score(y_filtered, y_pred_filtered))
+            results['c_at_1'].append(self.c_at_1_score(y_test, pred))
+            results['frac_classified'].append(len(y_pred_filtered) / len(y_test))
+            results['f1'].append(f1_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+            results['precision'].append(precision_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+            results['recall'].append(recall_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+            results['recall_total'].append(recall_score(y_test, y_pred_all, pos_label=positive_cls, average="binary"))
+            results['f_05_u'].append(self.f_05_u_score(y_test, pred, pos_label=positive_cls))
+
+        print('Results:', results, '\n')
+        results_agg = {k + '_agg': {'mean': mean(v), 'stdev': stdev(v)} for k, v in results.items()}
+        print(results_agg, '\n')
+
+        self._saveDTO = UnmaskingResult()
+
+        self._saveDTO.meta['results'] = results_agg
+        self._saveDTO.meta['nr_samples'] = k
+        await self._saveDTO.save(output_dir)
+
+        #print(results_std)
+
+        #self._test_data.meta["params"] = self._model.params
+        #self._test_data.meta["metrics"] = metrics
+
+        #event = ModelMetricsEvent(job_id, 0, X_filtered, y_actual_str, True, metrics)
+        #await EventBroadcaster().publish("onDataPredicted", event, self.__class__)
+
+        #await self._test_data.save(output_dir)
+
 
 
 class MetaModelSelectionExecutor(MetaClassificationExecutor):

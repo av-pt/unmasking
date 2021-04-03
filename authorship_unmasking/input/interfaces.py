@@ -216,7 +216,7 @@ class CorpusParser(Configurable, metaclass=ABCMeta):
     Base class for corpus parsers.
     """
 
-    def __init__(self, chunk_tokenizer: Tokenizer, corpus_path: str = None):
+    def __init__(self, chunk_tokenizer: Tokenizer, corpus_path: str = None, system: str = 'original'):
         """
         :param corpus_path: path to the corpus directory
         :param chunk_tokenizer: chunk tokenizer
@@ -224,6 +224,7 @@ class CorpusParser(Configurable, metaclass=ABCMeta):
         self._corpus_path = None
         self.corpus_path = corpus_path
         self.chunk_tokenizer = chunk_tokenizer
+        self.system = system
 
     @path_property
     def corpus_path(self) -> str:

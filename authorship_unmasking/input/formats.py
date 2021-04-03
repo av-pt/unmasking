@@ -768,6 +768,13 @@ class PanParser(CorpusParser):
             for b in file_names_b:
                 chunks_b.append(await self.await_file(b))
 
+            # chunks_a and chunks_b now contain texts of whole files
+            # Is there always only element in each list?
+            if not self.system == "original":
+                chunks_a = [transcribe(c, self.system) for c in chunks_a]
+                chunks_b = [transcribe(c, self.system) for c in chunks_b]
+            # print(chunks_a[0][:50])
+
             cls = self.Class.UNSPECIFIED
             if case in ground_truth:
                 cls = self.Class.SAME_AUTHOR if ground_truth[case] else self.Class.DIFFERENT_AUTHORS

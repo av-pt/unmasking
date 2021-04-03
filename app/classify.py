@@ -63,6 +63,16 @@ def main():
     eval_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
                              required=False, action="store_true")
 
+    # crossval command
+    eval_parser = subparsers.add_parser("crossval", help="Evaluate model quality by cross validating on 10 splits.")
+    eval_parser.add_argument("input", help="labeled raw JSON unmasking data from which to train a temporary model")
+    eval_parser.add_argument("--config", "-c", help="optional job configuration file",
+                             required=False, default=None)
+    eval_parser.add_argument("--output", "-o", help="output directory to save evaluation data to",
+                             required=False, default=None)
+    eval_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
+                             required=False, action="store_true")
+
     # model_select command
     eval_parser = subparsers.add_parser("model_select",
                                         help="Select the best-performing unmasking model of a set of configurations.")
@@ -98,6 +108,9 @@ def main():
         assert_file(args.input_train)
         assert_file(args.input_test)
         executor = MetaEvalExecutor(args.input_train, args.input_test)
+    elif args.command == "crossval":
+        assert_file(args.input)
+        executor = MetaCrossvalExecutor(args.input)
     elif args.command == "model_select":
         assert_dir(args.input_run_folder)
         executor = MetaModelSelectionExecutor(args.input_run_folder, args.cv_folds)
