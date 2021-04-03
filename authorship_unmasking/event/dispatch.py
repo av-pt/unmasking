@@ -138,10 +138,12 @@ class EventBroadcaster:
 
                 # We are in a worker process, delegate events to main process
                 MultiProcessEventContext().queue.put((event_name, event, sender))
+                #print(event_name, event, sender)
 
                 # Wait for new queue item to populate to main process
-                # TODO: find a better solution
-                await asyncio.sleep(0.7)
+                # TODO: find a better solution                
+                if event_name == 'onUnmaskingFinished':
+                    await asyncio.sleep(0.5)
 
                 return
 
