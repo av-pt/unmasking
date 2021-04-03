@@ -16,6 +16,7 @@ from authorship_unmasking.event.dispatch import EventBroadcaster
 from authorship_unmasking.event.events import PairBuildingProgressEvent, PairChunkingProgressEvent
 from authorship_unmasking.input.interfaces import Chunker, SamplePair, SamplePairClass, Tokenizer
 from authorship_unmasking.input.interfaces import CorpusParser
+from authorship_unmasking.ext_modules.converters import transcribe
 
 import json
 import math
