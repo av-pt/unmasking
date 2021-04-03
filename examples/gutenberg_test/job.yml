@@ -47,7 +47,7 @@ job%:
       rc_file: etc/plot_rc.yml
       parameters:
         # Show live plot
-        display: true
+        display: false
 
         # Set fixed xlim values since we know how many curve points we'll be getting
         xlim: [0, 23]
