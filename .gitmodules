@@ -1,0 +1,3 @@
+[submodule "authorship_unmasking/ext_modules/clts"]
+	path = authorship_unmasking/ext_modules/clts
+	url = git@github.com:cldf-clts/clts.git
