@@ -17,6 +17,8 @@ pyclts = "*"
 pyphonetics = "*"
 g2p-en = "*"
 spacy = "*"
+yappi = "*"
+tqdm = "*"
 
 [dev-packages]
 pylint = "*"

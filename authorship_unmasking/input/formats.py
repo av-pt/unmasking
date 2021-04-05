@@ -30,6 +30,7 @@ from itertools import combinations, combinations_with_replacement
 from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 from urllib.parse import urlparse
 from uuid import uuid5
+from tqdm import tqdm
 
 
 class SamplePairImpl(SamplePair):
@@ -752,7 +753,7 @@ class PanParser(CorpusParser):
         pair_num = 0
         total_num_pairs = len(ground_truth)
 
-        for case_dir in glob(os.path.join(self.corpus_path, "*")):
+        for case_dir in tqdm(glob(os.path.join(self.corpus_path, "*"))):
             if not os.path.isdir(case_dir) or \
                not os.path.isfile(os.path.join(case_dir, "unknown.txt")) or \
                not os.path.isfile(os.path.join(case_dir, "known01.txt")):
@@ -774,7 +775,6 @@ class PanParser(CorpusParser):
             if not self.system == "original":
                 chunks_a = [transcribe(c, self.system) for c in chunks_a]
                 chunks_b = [transcribe(c, self.system) for c in chunks_b]
-            # print(chunks_a[0][:50])
 
             cls = self.Class.UNSPECIFIED
             if case in ground_truth:

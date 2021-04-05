@@ -16,6 +16,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import functools
 import os
+import yappi
 
 __cached_functions = []
 __protected_cached_functions = []
@@ -106,6 +107,18 @@ def run_in_event_loop(coroutine):
 
     loop.set_default_executor(ThreadPoolExecutor(max_workers=os.cpu_count()))
     try:
-        loop.run_until_complete(asyncio.ensure_future(base_coroutine(coroutine)))
+        #yappi.set_clock_type("WALL")
+        with yappi.run():
+            print('Start.')
+            loop.run_until_complete(asyncio.ensure_future(base_coroutine(coroutine)))
+            print('Stop.')
+        #yappi.get_func_stats().sort('tsub', 'asc').print_all(columns={
+        #        0: ("name", 140),
+        #        1: ("ncall", 8),
+        #        2: ("tsub", 8),
+        #        3: ("ttot", 8),
+        #        4: ("tavg", 8)
+        #    })
+        #yappi.get_func_stats().sort('tsub', 'asc').save('out/stats.txt')
     finally:
         loop.run_until_complete(asyncio.ensure_future(base_coroutine(loop.shutdown_asyncgens())))
