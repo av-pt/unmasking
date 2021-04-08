@@ -4,6 +4,7 @@ in/
 # Output files
 out/
 out_meta/
+out*/
 
 # Cache and compiled files
 *.pyc
