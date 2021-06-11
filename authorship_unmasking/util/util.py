@@ -108,10 +108,10 @@ def run_in_event_loop(coroutine):
     loop.set_default_executor(ThreadPoolExecutor(max_workers=os.cpu_count()))
     try:
         #yappi.set_clock_type("WALL")
-        with yappi.run():
-            print('Start.')
-            loop.run_until_complete(asyncio.ensure_future(base_coroutine(coroutine)))
-            print('Stop.')
+        #with yappi.run():
+        print('Start.')
+        loop.run_until_complete(asyncio.ensure_future(base_coroutine(coroutine)))
+        print('Stop.')
         #yappi.get_func_stats().sort('tsub', 'asc').print_all(columns={
         #        0: ("name", 140),
         #        1: ("ncall", 8),

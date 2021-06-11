@@ -19,6 +19,8 @@ g2p-en = "*"
 spacy = "*"
 yappi = "*"
 tqdm = "*"
+ujson = "*"
+pandas = "*"
 
 [dev-packages]
 pylint = "*"

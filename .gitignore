@@ -15,6 +15,7 @@ dist/
 build/
 
 # Project files
+.vscode
 .idea
 *.iml
 .project

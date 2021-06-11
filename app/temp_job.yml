@@ -1,0 +1,48 @@
+job%:
+  exec%.strategy%:
+    parameters%:
+      buffer_curves: false
+      iterations: 24
+  experiment%:
+    aggregators:
+    - events:
+      - name: onUnmaskingFinished
+      - name: onPairGenerated
+      name: output.aggregators.CurveAverageAggregator
+    - events:
+      - name: onJobFinished
+      name: output.aggregators.AggregatedCurvePlotter
+      parameters:
+        display: false
+      rc_file: plot_rc.yml
+    configurations:
+      chunk_size:
+      - 500
+      - 600
+    repetitions: 2
+  input:
+    chunker:
+      name: input.chunkers.RandomWordTokenChunker
+      parameters:
+        chunk_size: 700
+        num_chunks: 30
+    parser:
+      name: input.formats.PanParser
+      parameters:
+        corpus_path: in/corpus/gutenberg_all
+    transcription: punct
+  output_dir: ../out/punct
+  outputs:
+  - events:
+    - name: onPairGenerated
+    - name: onUnmaskingFinished
+    name: output.formats.UnmaskingStatAccumulator
+  - events:
+    - name: onUnmaskingRoundFinished
+    name: output.formats.UnmaskingCurvePlotter
+    parameters:
+      display: false
+      xlim:
+      - 0
+      - 23
+    rc_file: etc/plot_rc.yml

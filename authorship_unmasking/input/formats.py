@@ -753,7 +753,7 @@ class PanParser(CorpusParser):
         pair_num = 0
         total_num_pairs = len(ground_truth)
 
-        for case_dir in tqdm(glob(os.path.join(self.corpus_path, "*"))):
+        for case_dir in tqdm(glob(os.path.join(self.corpus_path, "*")), desc='Text pairs'):
             if not os.path.isdir(case_dir) or \
                not os.path.isfile(os.path.join(case_dir, "unknown.txt")) or \
                not os.path.isfile(os.path.join(case_dir, "known01.txt")):

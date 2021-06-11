@@ -142,8 +142,7 @@ class EventBroadcaster:
 
                 # Wait for new queue item to populate to main process
                 # TODO: find a better solution                
-                if event_name == 'onUnmaskingFinished':
-                    await asyncio.sleep(0.5)
+                await asyncio.sleep(0.7)
 
                 return
 

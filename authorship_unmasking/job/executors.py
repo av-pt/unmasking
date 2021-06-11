@@ -599,7 +599,7 @@ class MetaCrossvalExecutor(MetaClassificationExecutor):
         # -> Create splits, aggregate them into a loop to have access to
         # -> X_train_i, y_train_i, X_test_i, y_test_i to fit and test models for each split
         # Create 'empty models'
-        k = 10
+        k = 5
 
         models = [self._configure_instance(self._config.get("job.model"), MetaClassificationModel) for _ in range(k)]
 
