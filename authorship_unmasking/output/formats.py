@@ -20,6 +20,7 @@ from authorship_unmasking.output.interfaces import Output
 from collections import OrderedDict
 from random import randint
 from typing import Any, Dict, Union
+import warnings
 
 import asyncio
 import gc
@@ -29,6 +30,7 @@ import matplotlib.ticker
 import numpy as np
 import os
 import sys
+from tqdm import tqdm
 
 # don't use default Qt backend if we are operating without a display server
 if sys.platform == "linux" and os.environ.get("DISPLAY") is None:
@@ -37,7 +39,7 @@ if sys.platform == "linux" and os.environ.get("DISPLAY") is None:
 try:
     import matplotlib.pyplot as pyplot
 except (ModuleNotFoundError, ImportError):
-    matplotlib.use("Agg", warn=False, force=True)
+    matplotlib.use("Agg", force=True)
     import matplotlib.pyplot as pyplot
 
 
@@ -286,6 +288,57 @@ class ProgressPrinter(EventHandler, Output):
         pass
 
 
+class ProgressBar(ProgressPrinter):
+    """
+    Print progress as a progress bar to the console.
+    """
+
+    def __init__(self, text: str = None, unit: str = None):
+        super().__init__(text)
+        self._unit = unit
+        self._bars = dict()
+
+    @property
+    def unit(self) -> str:
+        """Get custom item unit"""
+        return self._unit
+
+    @unit.setter
+    def unit(self, unit: str):
+        """
+        Set custom item unit.
+        """
+        self._unit = unit
+
+    async def handle(self, name: str, event: Event, sender: type):
+        """
+        Accepts events:
+            - ProgressEvent
+        """
+        if not isinstance(event, ProgressEvent):
+            raise RuntimeError("event must be of type ProgressEvent")
+
+        if name not in self._bars:
+            self._bars[name] = tqdm(leave=False,
+                                    unit=self.unit if self.unit else event.unit,
+                                    desc=self._text if self._text else event.generic_text)
+
+        if event.events_total:
+            self._bars[name].total = event.events_total
+
+        if event.serial:
+            self._bars[name].n = event.serial
+            self._bars[name].update(0)
+        else:
+            self._bars[name].update(1)
+
+    async def save(self, output_dir: str, file_name: Optional[str] = None):
+        pass
+
+    def reset(self):
+        pass
+
+
 class ModelMetricsPrinter(EventHandler, Output):
     """
     Print model prediction metrics.
@@ -356,7 +409,18 @@ class UnmaskingStatAccumulator(EventHandler, Output):
 
         output = UnmaskingResult()
         for c in self._curves:
-            output.add_curve(c, **self._curves[c])
+
+            # Wait until all individual curve events have been processed.
+            wait_counter = 0
+            while "values" not in self._curves[c]:
+                await asyncio.sleep(0.01)
+                wait_counter += 1
+                if wait_counter >= 4000:
+                    print("WARNING: Aborting curve aggregation which blocked for more than 40 seconds. " +
+                          "This is probably a bug.\n", file=sys.stderr)
+                    break
+            else:
+                output.add_curve(c, **self._curves[c])
 
         for m in self._meta:
             output.add_meta(m, self._meta[m])
@@ -483,6 +547,11 @@ class UnmaskingCurvePlotter(EventHandler, Output):
         """Set whether the plot will be displayed on screen"""
         if matplotlib.get_backend().lower() != "agg":
             self._display = display
+
+            if display:
+                print('WARNING: Live plotting is enabled, which is meant only for demonstration purposes.',
+                      file=sys.stderr)
+                print('         Set "display" to false in your job config for better performance.\n', file=sys.stderr)
         else:
             self._display = False
 

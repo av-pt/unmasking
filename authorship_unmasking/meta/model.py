@@ -18,18 +18,10 @@ from concurrent.futures import ThreadPoolExecutor
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
-from sklearn.exceptions import ConvergenceWarning
 from typing import Any, Iterable
 
 import asyncio
 import numpy as np
-import warnings
-import os, sys
-
-if not sys.warnoptions:
-    warnings.simplefilter("ignore")
-    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
-
 
 
 # noinspection PyPep8Naming
@@ -66,8 +58,7 @@ class LinearMetaClassificationModel(MetaClassificationModel):
             "loss": ["hinge", "squared_hinge"],
             "class_weight": [None, "balanced", {0: 1, 1: 2}, {0: 2, 1: 1}]
         }
-        #with warnings.catch_warnings():
-        #    warnings.simplefilter("ignore")
+
         grid = GridSearchCV(estimator, parameters, cv=min(5, *np.bincount(np.array(y, int))), n_jobs=-1)
         grid.fit(X, y)
         self._clf_params = grid.best_estimator_.get_params()
