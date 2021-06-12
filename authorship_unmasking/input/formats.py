@@ -16,7 +16,6 @@ from authorship_unmasking.event.dispatch import EventBroadcaster
 from authorship_unmasking.event.events import PairBuildingProgressEvent, PairChunkingProgressEvent
 from authorship_unmasking.input.interfaces import Chunker, SamplePair, SamplePairClass, Tokenizer
 from authorship_unmasking.input.interfaces import CorpusParser
-from authorship_unmasking.ext_modules.converters import transcribe
 
 import json
 import math
@@ -769,12 +768,6 @@ class PanParser(CorpusParser):
             file_names_b = sorted(glob(os.path.join(self.corpus_path, case, "known??.txt")))
             for b in file_names_b:
                 chunks_b.append(await self.await_file(b))
-
-            # chunks_a and chunks_b now contain texts of whole files
-            # Is there always only element in each list?
-            if not self.system == "original":
-                chunks_a = [transcribe(c, self.system) for c in chunks_a]
-                chunks_b = [transcribe(c, self.system) for c in chunks_b]
 
             cls = self.Class.UNSPECIFIED
             if case in ground_truth:

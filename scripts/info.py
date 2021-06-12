@@ -7,6 +7,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+"""
+Script for computing the vocabulary size reduction when applying 
+phonetic transcriptions.
+TODO: Use pre-transcribed data from NAACL-19 submodule.
+Also maybe put this into its own repository.
+"""
+
+
 nlp = spacy.load('en_core_web_sm')
 transcription_systems = {'art', 'asjp', 'color', 'cv', 'dolgo', 'sca', 'ipa', 
                          'soundex', 'fuzsoundex', 'refsoundex', 'metaphone', 

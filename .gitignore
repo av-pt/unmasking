@@ -5,6 +5,7 @@ in/
 out/
 out_meta/
 out*/
+data/
 
 # Cache and compiled files
 *.pyc
@@ -13,6 +14,7 @@ venv/
 dist/
 *.egg-info/
 build/
+cache/
 
 # Project files
 .vscode
@@ -39,3 +41,4 @@ desktop.ini
 *.swp
 *.bkp
 tmp.*
+app/temp_job.yml

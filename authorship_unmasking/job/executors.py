@@ -126,24 +126,16 @@ class ExpandingExecutor(JobExecutor):
             cfg = JobConfigLoader(self._config.get())
 
         chunk_tokenizer = self._configure_instance(cfg.get("job.input.chunker"), Chunker)
-        system = 'original'
-        try:
-            system = cfg.get("job.input.transcription")
-            print("Using transcription system: " + system)
-        except KeyError:
-            print('No or invalid transcription system specified. Not transcribing.')
-        # Using None for skipping the 2nd argument is hacky, is there a way to use kwargs here?
-        parser = self._configure_instance(cfg.get("job.input.parser"), CorpusParser, (chunk_tokenizer, None, system,))
+        parser = self._configure_instance(cfg.get("job.input.parser"), CorpusParser, (chunk_tokenizer,))
         repetitions = cfg.get("job.experiment.repetitions")
         strat = self._configure_instance(cfg.get("job.exec.strategy"), Strategy)
         sampler = self._configure_instance(cfg.get("job.classifier.sampler"), ChunkSampler)
-        #print(parser)
+
         loop = asyncio.get_event_loop()
         for _ in range(repetitions):
             futures = []
 
             async for pair in parser:
-                #print(pair.chunks_a[0][:50], pair.chunks_b[0][:50])
                 feature_set = self._configure_instance(
                     cfg.get("job.classifier.feature_set"), FeatureSet, (pair, sampler))
                 futures.append(loop.run_in_executor(executor, self._exec, strat, feature_set))
@@ -321,11 +313,11 @@ class MetaClassificationExecutor(JobExecutor, metaclass=ABCMeta):
         X, y = unmasking.to_numpy()
         if y is None:
             raise RuntimeError("Training input must have labels")
-        print('Optimizing')
+        print('Optimizing...')
         await model.optimize(X, y)
-        print('Fitting')
+        print('Fitting...')
         await model.fit(X, y)
-        print('Finish')
+        print('Finished.')
         y = [unmasking.numpy_label_to_str(l) for l in y]
         event = ModelFitEvent(input_path, 0, X, y)
         await EventBroadcaster().publish("onModelFit", event, self.__class__)
@@ -470,7 +462,7 @@ class MetaApplyExecutor(MetaClassificationExecutor):
         :param X: data points
         :return: predicted classes as int vector and decision probabilities
         """
-        pred = await self._model.predict(X)  # Where is it ensured that this is not a string?
+        pred = await self._model.predict(X)
         decision_func = await self._model.decision_function(X)
         prob = np.abs(decision_func)
         prob = (prob - np.min(prob)) / (np.max(prob) - np.min(prob))

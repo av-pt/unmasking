@@ -21,8 +21,8 @@ for folder in out_folders:
                                           'job_*', 
                                           'CurveAverageAggregator.*'))[0]
 
-    # Load orig_job.yml
-    with open('app/orig_job_meta.yml') as f:
+    # Load job.yml
+    with open('app/job_meta.yml') as f:
         doc = yaml.load(f, Loader=yaml.FullLoader)
 
     doc['job']['output_dir'] = os.path.join('..', 'out_meta', folder)

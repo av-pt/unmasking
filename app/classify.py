@@ -64,27 +64,27 @@ def main():
                              required=False, action="store_true")
 
     # crossval command
-    eval_parser = subparsers.add_parser("crossval", help="Evaluate model quality by cross validating on 10 splits.")
-    eval_parser.add_argument("input", help="labeled raw JSON unmasking data from which to train a temporary model")
-    eval_parser.add_argument("--config", "-c", help="optional job configuration file",
+    crossval_parser = subparsers.add_parser("crossval", help="Evaluate model quality by cross validating on 10 splits.")
+    crossval_parser.add_argument("input", help="labeled raw JSON unmasking data from which to train a temporary model")
+    crossval_parser.add_argument("--config", "-c", help="optional job configuration file",
                              required=False, default=None)
-    eval_parser.add_argument("--output", "-o", help="output directory to save evaluation data to",
+    crossval_parser.add_argument("--output", "-o", help="output directory to save evaluation data to",
                              required=False, default=None)
-    eval_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
+    crossval_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
                              required=False, action="store_true")
 
     # model_select command
-    eval_parser = subparsers.add_parser("model_select",
+    model_select_parser = subparsers.add_parser("model_select",
                                         help="Select the best-performing unmasking model of a set of configurations.")
-    eval_parser.add_argument("input_run_folder", help="folder containing the unmasking runs from whose configurations" +
+    model_select_parser.add_argument("input_run_folder", help="folder containing the unmasking runs from whose configurations" +
                                                       "to select the best performing model")
-    eval_parser.add_argument("--config", "-c", help="optional job configuration file",
+    model_select_parser.add_argument("--config", "-c", help="optional job configuration file",
                              required=False, default=None)
-    eval_parser.add_argument("--output", "-o", help="output directory to save evaluation data to",
+    model_select_parser.add_argument("--output", "-o", help="output directory to save evaluation data to",
                              required=False, default=None)
-    eval_parser.add_argument("--cv_folds", "-f", help="cross-validation folds for model selection",
+    model_select_parser.add_argument("--cv_folds", "-f", help="cross-validation folds for model selection",
                              required=False, type=int, default=10)
-    eval_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
+    model_select_parser.add_argument("--wait", "-w", help="wait for user confirmation after job is done",
                              required=False, action="store_true")
 
     args = parser.parse_args()

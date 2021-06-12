@@ -4,13 +4,11 @@
 
 ---
 job%:
-  output_dir: <output_dir>
   # Input corpus options
   input:
-    transcription: <transcription>
     # Corpus parser class
     parser:
-      name: input.formats.PanParser
+      name: input.formats.Pan20Parser
       parameters:
         # Corpus path relative to the application directory
         corpus_path: in/corpus/gutenberg_all
@@ -36,7 +34,7 @@ job%:
       iterations: 24
 
       # Update plot after each iteration
-      buffer_curves: false
+      buffer_curves: true
 
   # Specify outputs. Since we are overriding the settings for the
   # UnmaskingCurvePlotter, we can't inherit from the default config
@@ -56,11 +54,9 @@ job%:
         xlim: [0, 23]
       events:
         - name: onUnmaskingRoundFinished
-
-    #- name: output.formats.ProgressPrinter
-    #  events:
-    #    - name: onChunkingProgress
-    #    - name: onPairGenerated
+    - name: output.formats.ProgressBar
+      events:
+        - name: onPairGenerated
 
   experiment%:
     configurations:
