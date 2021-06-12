@@ -20,7 +20,7 @@ from authorship_unmasking.features.feature_sets import ChunkSampler, FeatureSet
 from authorship_unmasking.job.interfaces import JobExecutor, ConfigurationExpander, Strategy
 from authorship_unmasking.input.interfaces import CorpusParser, Chunker
 from authorship_unmasking.meta.interfaces import MetaClassificationModel
-from authorship_unmasking.output.formats import UnmaskingResult
+from authorship_unmasking.output.formats import UnmaskingResult, CrossvalResult
 from authorship_unmasking.util.util import clear_lru_caches
 
 from abc import ABCMeta, abstractmethod
@@ -588,23 +588,27 @@ class MetaCrossvalExecutor(MetaClassificationExecutor):
         unmasking = UnmaskingResult()
         unmasking.load(self._input_path)
         X, y = unmasking.to_numpy()
-        # -> Create splits, aggregate them into a loop to have access to
-        # -> X_train_i, y_train_i, X_test_i, y_test_i to fit and test models for each split
-        # Create 'empty models'
+
         k = 5
 
         models = [self._configure_instance(self._config.get("job.model"), MetaClassificationModel) for _ in range(k)]
 
-        results = defaultdict(list)
+        results = dict()
 
         kf = StratifiedKFold(n_splits=k)
+
+        y_filtered_agg = []
+        y_pred_filtered_agg = []
+        y_test_agg = []
+        pred_agg = []
+        y_pred_all_agg = []
+        positive_cls = None
+
         for model, (train, test), i in zip(models, kf.split(X, y), range(k)):
             X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
 
             # Train model on split
-            print('Optimizing split', i)
             await model.optimize(X_train, y_train)
-            print('Fitting split', i)
             await model.fit(X_train, y_train)
 
             # Predict test split
@@ -615,38 +619,33 @@ class MetaCrossvalExecutor(MetaClassificationExecutor):
 
             # eliminate all non-decisions
             y_pred_filtered = pred[pred > -1]
-            y_pred_all      = np.copy(pred)
+            y_pred_all = np.copy(pred)
             y_pred_all[y_pred_all == -1] = negative_cls
-            y_filtered     = y_test[pred > -1]
+            y_filtered = y_test[pred > -1]
 
-            results['accuracy'].append(accuracy_score(y_filtered, y_pred_filtered))
-            results['c_at_1'].append(self.c_at_1_score(y_test, pred))
-            results['frac_classified'].append(len(y_pred_filtered) / len(y_test))
-            results['f1'].append(f1_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
-            results['precision'].append(precision_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
-            results['recall'].append(recall_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
-            results['recall_total'].append(recall_score(y_test, y_pred_all, pos_label=positive_cls, average="binary"))
-            results['f_05_u'].append(self.f_05_u_score(y_test, pred, pos_label=positive_cls))
+            y_filtered_agg = np.concatenate((y_filtered_agg, y_filtered))
+            y_pred_filtered_agg = np.concatenate((y_pred_filtered_agg, y_pred_filtered))
+            y_test_agg = np.concatenate((y_test_agg, y_test))
+            pred_agg = np.concatenate((pred_agg, pred))
+            y_pred_all_agg = np.concatenate((y_pred_all_agg, y_pred_all))
 
-        print('Results:', results, '\n')
-        results_agg = {k + '_agg': {'mean': mean(v), 'stdev': stdev(v)} for k, v in results.items()}
-        print(results_agg, '\n')
+            await EventBroadcaster().publish(
+                "onFoldEvaluated", CrossvalProgressEvent(str(i+1), i+1, k), self.__class__)
 
-        self._saveDTO = UnmaskingResult()
+        results['accuracy'] = accuracy_score(y_filtered_agg, y_pred_filtered_agg)
+        results['c_at_1'] = self.c_at_1_score(y_test_agg, pred_agg)
+        results['frac_classified'] = len(y_pred_filtered_agg) / len(y_test_agg)
+        results['f1'] = f1_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
+        results['precision'] = precision_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
+        results['recall'] = recall_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
+        results['recall_total'] = recall_score(y_test_agg, y_pred_all_agg, pos_label=positive_cls, average="binary")
+        results['f_05_u'] = self.f_05_u_score(y_test_agg, pred_agg, pos_label=positive_cls)
 
-        self._saveDTO.meta['results'] = results_agg
-        self._saveDTO.meta['nr_samples'] = k
+        self._saveDTO = CrossvalResult()
+
+        self._saveDTO.set_results(results)
+        self._saveDTO.set_folds(k)
         await self._saveDTO.save(output_dir)
-
-        #print(results_std)
-
-        #self._test_data.meta["params"] = self._model.params
-        #self._test_data.meta["metrics"] = metrics
-
-        #event = ModelMetricsEvent(job_id, 0, X_filtered, y_actual_str, True, metrics)
-        #await EventBroadcaster().publish("onDataPredicted", event, self.__class__)
-
-        #await self._test_data.save(output_dir)
 
 
 

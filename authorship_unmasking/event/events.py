@@ -98,6 +98,29 @@ class PairChunkingProgressEvent(ProgressEvent):
         return "pair(s)"
 
 
+class CrossvalProgressEvent(ProgressEvent):
+    """
+    Event for status reports on cross-validation progress.
+    """
+
+    def __init__(self, group_id: str, serial: int, total: Optional[int] = None):
+        """
+        :param group_id: event group ID token
+        :param serial: event serial number
+        """
+        super().__init__(group_id, serial, total)
+
+    @property
+    def generic_text(self) -> Optional[str]:
+        """Generic progress description."""
+        return "Cross-validating"
+
+    @property
+    def unit(self) -> Optional[str]:
+        """Progress item unit name."""
+        return "fold(s)"
+
+
 class PairBuildingProgressEvent(ProgressEvent):
     """
     Event for status reports on pair generation.

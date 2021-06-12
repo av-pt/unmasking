@@ -43,6 +43,55 @@ except (ModuleNotFoundError, ImportError):
     import matplotlib.pyplot as pyplot
 
 
+class CrossvalResult(Output):
+    """
+    Cross-validation result DTO.
+    """
+
+    def __init__(self):
+        self._results = OrderedDict()
+        self._folds = None
+
+    @property
+    def meta(self) -> Dict[str, Any]:
+        """Get meta data as ordered dict"""
+        return self._meta
+
+    @property
+    def folds(self) -> int:
+        """Get number of folds"""
+        return self._folds
+
+    def set_results(self, d: OrderedDict()):
+        """
+        Set cross-validation results
+
+        :param d: dict with results
+        """
+        self._results = d
+
+    def set_folds(self, k: int):
+        """
+        Set number of folds
+
+        :param k: Number of folds
+        """
+        self._folds = k
+
+    def reset(self):
+        self.__init__()
+
+    async def save(self, output_dir: str, file_name: Optional[str] = None):
+        if file_name is None:
+            file_name = self._generate_output_basename() + ".json"
+
+        with open(os.path.join(output_dir, file_name), "w", encoding="utf-8") as f:
+            json.dump(OrderedDict([
+                ("results", self._results),
+                ("folds", self._folds)
+            ]), f, indent=2)
+
+
 class UnmaskingResult(Output):
     """
     Unmasking result DTO.

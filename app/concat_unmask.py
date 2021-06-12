@@ -5,8 +5,8 @@ import yaml
 import argparse
 
 """
-Given a directory of PAN20 formatted datasets, runs unmask.py on all of
-them.
+Given a directory of PAN20 formatted datasets, runs `unmask.py run` on
+all of them.
 Inputs:
 - job.yml with <output_dir> and <transcription> placeholders
 - path to directory with PAN20 formatted datasets
@@ -18,8 +18,8 @@ def now(): return time.strftime("%Y-%m-%d_%H-%M-%S")
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="classify",
-        description="Train and apply unmasking models.",
+        prog="concat_unmask",
+        description="Automate unmasking for multiple datasets",
         add_help=True)
     parser.add_argument('--input',
                         '-i',

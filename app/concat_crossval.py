@@ -1,33 +1,51 @@
-import os, sys, glob, yaml, subprocess
+import glob
+import os
+import subprocess
+import time
+import argparse
 
-# Goes through unmask out/ folder and calculates crossval results for
-# all unmasking results
-# TODO: Add k for specifying nr of folds
-path = 'out_finished'
-out_folders = [f.name for f in os.scandir(path) if f.is_dir()]
+"""
+Given a directory of unmasking curve results
+(e.g. "unmasking_curves_2021-06-12_13-23-07") runs
+`classify.py crossval` on all of them.
+TODO: Add k for specifying nr of folds
+"""
 
-# If output already exists, do not calculate crossval again
-existing_folders = [f.name for f in os.scandir('out_meta') if f.is_dir()]
-out_folders = [f for f in out_folders if f not in existing_folders]
 
-print('Computing crossval for:', out_folders)
+def now(): return time.strftime("%Y-%m-%d_%H-%M-%S")
 
-for folder in out_folders:
 
-    # Assuming there's only one job_DDDDD... file
-    # Get file: out/folder/job_*/CurveAverageAggregator.*
-    path_to_json = glob.glob(os.path.join(path, 
-                                          folder, 
-                                          'job_*', 
-                                          'CurveAverageAggregator.*'))[0]
+def main():
+    parser = argparse.ArgumentParser(
+        prog="concat_crossval",
+        description="Automate cross-validation for multiple sets of unmasking curves",
+        add_help=True)
+    parser.add_argument('--input',
+                        '-i',
+                        help='Path to directory of unmasking results (containing'
+                             ' one directory for each unmasked dataset)')
+    args = parser.parse_args()
 
-    # Load job.yml
-    with open('app/job_meta.yml') as f:
-        doc = yaml.load(f, Loader=yaml.FullLoader)
+    directory = [d for d in os.scandir(args.input)]
+    print(f'Found {len(directory)} unmasking results.')
+    output_folder = f'crossval_results_{now()}/'
 
-    doc['job']['output_dir'] = os.path.join('..', 'out_meta', folder)
-    
-    with open('app/temp_job_meta.yml', 'w') as f:
-        yaml.dump(doc, f)
+    for i, dir_entry in enumerate(directory):
+        print(f'Cross-validating {dir_entry.name}... ({i + 1}/{len(directory)})')
 
-    subprocess.run(['./classify', 'crossval', path_to_json, '-c', 'app/temp_job_meta.yml'])
+        # Assuming there's only one job_DDDDD... file
+        # Get file: out/folder/job_*/CurveAverageAggregator.*
+        path_to_json = glob.glob(os.path.join(dir_entry.path,
+                                              'job_*',
+                                              'CurveAverageAggregator.*'))[0]
+
+        subprocess.run(['./classify', 'crossval', path_to_json,
+                        '-c', 'app/job_meta.yml',
+                        '-o', os.path.join('..',
+                                           'data',
+                                           output_folder,
+                                           dir_entry.name)])
+
+
+if __name__ == "__main__":
+    main()
