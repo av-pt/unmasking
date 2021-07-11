@@ -1,5 +1,22 @@
 # General-purpose Unmasking Framework
 
+## Changes in this fork
+- Added cross-validation functionality
+- Added Gutenberg dataset as submodule
+- Added pipenv for ease of use
+  
+Sample commands:  
+Install dependencies:  
+`pipenv install`  
+Convert dataset to PAN20 format:  
+`pipenv run python`  
+Transcribe dataset:  
+`pipenv run python`  
+Run unmasking for multiple datasets:  
+`pipenv run python`  
+
+
+(continuing original readme...)  
 This is a general-purpose unmasking framework, primarily (but not only) developed for
 authorship verification. For the original unmasking paper, see
 [Koppel and Schler (2004)](https://doi.org/10.1145/1015330.1015448).
