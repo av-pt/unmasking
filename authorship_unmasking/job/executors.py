@@ -589,57 +589,72 @@ class MetaCrossvalExecutor(MetaClassificationExecutor):
         unmasking.load(self._input_path)
         X, y = unmasking.to_numpy()
 
-        k = 5
+        k = 10
 
         models = [self._configure_instance(self._config.get("job.model"), MetaClassificationModel) for _ in range(k)]
 
         results = dict()
 
-        kf = StratifiedKFold(n_splits=k)
+        for repetition in range(3):
+            print(f'Cross-validation repetition {repetition}')
+            kf = StratifiedKFold(n_splits=k, shuffle=True, random_state=repetition)
 
-        y_filtered_agg = []
-        y_pred_filtered_agg = []
-        y_test_agg = []
-        pred_agg = []
-        y_pred_all_agg = []
-        positive_cls = None
+            results[repetition] = dict()
+            results[repetition]['accuracy'] = []
+            results[repetition]['c_at_1'] = []
+            results[repetition]['frac_classified'] = []
+            results[repetition]['f1'] = []
+            results[repetition]['precision'] = []
+            results[repetition]['recall'] = []
+            results[repetition]['recall_total'] = []
+            results[repetition]['f_05_u'] = []
 
-        for model, (train, test), i in zip(models, kf.split(X, y), range(k)):
-            X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
+            for model, (train, test), i in zip(models, kf.split(X, y), range(k)):
+                X_train, X_test, y_train, y_test = X[train], X[test], y[train], y[test]
 
-            # Train model on split
-            await model.optimize(X_train, y_train)
-            await model.fit(X_train, y_train)
+                # Train model on split
+                await model.optimize(X_train, y_train)
+                await model.fit(X_train, y_train)
 
-            # Predict test split
-            pred = await model.predict(X_test)
+                # Predict test split
+                pred = await model.predict(X_test)
 
-            positive_cls = np.max(y_test)
-            negative_cls = np.min(y_test)
+                positive_cls = np.max(y_test)
+                negative_cls = np.min(y_test)
 
-            # eliminate all non-decisions
-            y_pred_filtered = pred[pred > -1]
-            y_pred_all = np.copy(pred)
-            y_pred_all[y_pred_all == -1] = negative_cls
-            y_filtered = y_test[pred > -1]
+                # eliminate all non-decisions
+                y_pred_filtered = pred[pred > -1]
+                y_pred_all = np.copy(pred)
+                y_pred_all[y_pred_all == -1] = negative_cls
+                y_filtered = y_test[pred > -1]
 
-            y_filtered_agg = np.concatenate((y_filtered_agg, y_filtered))
-            y_pred_filtered_agg = np.concatenate((y_pred_filtered_agg, y_pred_filtered))
-            y_test_agg = np.concatenate((y_test_agg, y_test))
-            pred_agg = np.concatenate((pred_agg, pred))
-            y_pred_all_agg = np.concatenate((y_pred_all_agg, y_pred_all))
+                # y_filtered_agg = np.concatenate((y_filtered_agg, y_filtered))
+                # y_pred_filtered_agg = np.concatenate((y_pred_filtered_agg, y_pred_filtered))
+                # y_test_agg = np.concatenate((y_test_agg, y_test))
+                # pred_agg = np.concatenate((pred_agg, pred))
+                # y_pred_all_agg = np.concatenate((y_pred_all_agg, y_pred_all))
 
-            await EventBroadcaster().publish(
-                "onFoldEvaluated", CrossvalProgressEvent(str(i+1), i+1, k), self.__class__)
+                results[repetition]['accuracy'].append(accuracy_score(y_filtered, y_pred_filtered))
+                results[repetition]['c_at_1'].append(self.c_at_1_score(y_test, pred))
+                results[repetition]['frac_classified'].append(len(y_pred_filtered) / len(y_test))
+                results[repetition]['f1'].append(f1_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+                results[repetition]['precision'].append(precision_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+                results[repetition]['recall'].append(recall_score(y_filtered, y_pred_filtered, pos_label=positive_cls, average="binary"))
+                results[repetition]['recall_total'].append(recall_score(y_test, y_pred_all, pos_label=positive_cls, average="binary"))
+                results[repetition]['f_05_u'].append(self.f_05_u_score(y_test, pred, pos_label=positive_cls))
 
-        results['accuracy'] = accuracy_score(y_filtered_agg, y_pred_filtered_agg)
-        results['c_at_1'] = self.c_at_1_score(y_test_agg, pred_agg)
-        results['frac_classified'] = len(y_pred_filtered_agg) / len(y_test_agg)
-        results['f1'] = f1_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
-        results['precision'] = precision_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
-        results['recall'] = recall_score(y_filtered_agg, y_pred_filtered_agg, pos_label=positive_cls, average="binary")
-        results['recall_total'] = recall_score(y_test_agg, y_pred_all_agg, pos_label=positive_cls, average="binary")
-        results['f_05_u'] = self.f_05_u_score(y_test_agg, pred_agg, pos_label=positive_cls)
+                await EventBroadcaster().publish(
+                    "onFoldEvaluated", CrossvalProgressEvent(str(i+1), i+1, k), self.__class__)
+
+        results['avg'] = dict()
+        results['avg']['accuracy'] = mean(results[0]['accuracy'] + results[1]['accuracy'] + results[2]['accuracy'])
+        results['avg']['c_at_1'] = mean(results[0]['c_at_1'] + results[1]['c_at_1'] + results[2]['c_at_1'])
+        results['avg']['frac_classified'] = mean(results[0]['frac_classified'] + results[1]['frac_classified'] + results[2]['frac_classified'])
+        results['avg']['f1'] = mean(results[0]['f1'] + results[1]['f1'] + results[2]['f1'])
+        results['avg']['precision'] = mean(results[0]['precision'] + results[1]['precision'] + results[2]['precision'])
+        results['avg']['recall'] = mean(results[0]['recall'] + results[1]['recall'] + results[2]['recall'])
+        results['avg']['recall_total'] = mean(results[0]['recall_total'] + results[1]['recall_total'] + results[2]['recall_total'])
+        results['avg']['f_05_u'] = mean(results[0]['f_05_u'] + results[1]['f_05_u'] + results[2]['f_05_u'])
 
         self._saveDTO = CrossvalResult()
 
