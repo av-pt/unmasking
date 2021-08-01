@@ -767,6 +767,7 @@ class UnmaskingCurvePlotter(EventHandler, Output):
             if file_name.endswith(ext):
                 ext = ""
             self._fig.savefig(os.path.join(output_dir, file_name + ext))
+            # self._fig.savefig(os.path.join(output_dir, file_name + ext), format='pdf', bbox_inches='tight')
 
     def reset(self):
         self._colors = {}
@@ -781,6 +782,7 @@ class UnmaskingCurvePlotter(EventHandler, Output):
 
         if self._fig is None:
             self._fig = pyplot.figure()
+            # self._fig = pyplot.figure(figsize=(5, 3.5))
 
         self._fig.clear()
         gc.collect()
