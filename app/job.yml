@@ -62,10 +62,10 @@ job%:
     configurations:
       # Perform and aggregate two runs, one with a chunk size of
       # 500 and one with a chunk size of 600
-      chunk_size: [500, 600]
+      chunk_size: [500, 600, 700]
 
     # Repeat each configuration three times
-    repetitions: 2
+    repetitions: 4
 
     aggregators:
       # Aggregate curves by averaging them
